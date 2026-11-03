@@ -57,6 +57,12 @@ paths:
 #   epic: product/templates/epic.md
 #   story: product/templates/user-story.md
 
+# Writing style for prose in every generated doc (research, roadmap, epics, stories).
+# ste = STE-style, based on ASD-STE100 (not compliant: no controlled dictionary).
+# Rules live in the plugin: references/writing-styles/<style>.md. Code, config keys and quotes are never restyled.
+writing_style: ste                # ste | plain-english | none (default: ste)
+glossary: product/glossary.md     # optional; table of Term | Definition | Do not use
+
 # A story may only move to `status: approved` when these hold.
 definition_of_ready:
   - Has at least one Given/When/Then acceptance criterion

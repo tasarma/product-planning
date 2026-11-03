@@ -17,6 +17,7 @@ Split one epic into small, independently shippable user stories. Each story has 
 - `$ARGUMENTS`: an epic id such as `EPIC-001`. If it's missing, list the epics in `paths.backlog` and ask which one.
 - Template: `templates.story` if set, otherwise `${CLAUDE_PLUGIN_ROOT}/templates/user-story.md`.
 - Frontmatter contract: `${CLAUDE_PLUGIN_ROOT}/schemas/item-frontmatter.md` (Story section). The fields are `id`, `title`, `epic`, `status` (`draft|review|approved`), `priority`, `estimate`, `tracker_id`, `tracker_url`.
+- Writing style: before you write any prose, follow `${CLAUDE_PLUGIN_ROOT}/references/apply-writing-style.md`. Don't copy the rules here.
 
 ## Outputs
 - `<paths.stories>/<US-NNN>-<slug>.md`, one per story, created with `status: draft` and `tracker_id`/`tracker_url` set to `null`

@@ -16,6 +16,7 @@ The skills are generic. Everything specific to a project (product, personas, con
 | `/product-planning:backlog` | 🚧 stub | One file per epic → `paths.backlog` |
 | `/product-planning:stories` | 🚧 stub | One file per story, with acceptance criteria → `paths.stories` |
 | `/product-planning:sync` | ✅ | One-way sync of **approved** epics and stories → tracker |
+| `/product-planning:style-check` | ✅ | Checks docs against the writing style and glossary, and fixes them after you say yes |
 
 ## Requirements
 - Claude Code with plugin support
@@ -74,6 +75,55 @@ workflow.yaml ──┬─────────────┬─────
 - **Only `status: approved` items are synced.** Moving an item from draft to review to approved is your review gate.
 - Templates are in [`templates/`](templates/). To use your own, set `templates.epic`, `templates.story` or `templates.roadmap` in `workflow.yaml`.
 
+## Writing style
+All prose that the doc skills write follows one writing style. Each project selects it in `product/workflow.yaml`:
+
+```yaml
+writing_style: ste              # ste | plain-english | none (default: ste)
+glossary: product/glossary.md   # optional
+```
+
+| Style | What it means |
+|---|---|
+| `ste` (default) | STE-style, based on ASD-STE100. 20 words or fewer per sentence in procedures and 25 in descriptions, 6 sentences or fewer per paragraph, active voice, simple tenses, one word for one meaning. |
+| `plain-english` | A lighter style: short sentences, active voice, common words. No strict limits. |
+| `none` | No style rules. The glossary still applies. |
+
+- **One place for the rules.** The rules are in [`references/writing-styles/`](references/writing-styles/). Each doc skill follows [`references/apply-writing-style.md`](references/apply-writing-style.md), which loads the active style file and the glossary. To change a rule, edit the style file. The word limits are in the style file's frontmatter, and `/style-check` reads them from there.
+- **Scope.** The styles apply to prose only. They never change code, identifiers, config keys, log output, frontmatter, or quoted text.
+- **Sync doesn't restyle.** `/sync` sends the text exactly as it is in the files.
+
+### Glossary
+`init` can create `product/glossary.md` from [`templates/glossary.md`](templates/glossary.md). Add one row per term:
+
+```markdown
+| Term | Definition | Do not use |
+|---|---|---|
+| workspace | A shared area that holds the notes of one team. | project space, area |
+```
+
+Skills write each term exactly as shown. `/style-check` reports every word from the "Do not use" column, in every style.
+
+### Check and fix docs
+```
+/product-planning:style-check                      # paths.research, roadmap, backlog, stories
+/product-planning:style-check product/stories/US-003-share-link.md
+```
+The report gives one table per file: long sentences (with line and word count), long paragraphs, passive voice, glossary conflicts, and inconsistent terms. Then it asks whether to fix them, and edits only after you reply **yes**. It confirms that code blocks, frontmatter and quoted text did not change, and shows a summary of the changes.
+
+The measurable checks also run without Claude, for example in CI:
+`python3 <plugin>/scripts/pp.py style-check [path...] [--json]` (exit code 1 when it finds issues).
+
+To run the check automatically after each edit, you can add a `PostToolUse` hook that calls this command. The plugin doesn't ship one, because the warnings get noisy while you draft.
+
+### Chat replies (optional)
+The plugin ships an output style for chat replies. Claude Code lists it as `product-planning:ste`. Turn it on with `/output-style product-planning:ste`, or select it in `/config` → Output style. Turn it off with `/output-style default`. Output styles can't read plugin files, so `output-styles/ste.md` has its own short copy of the STE rules. If you change `references/writing-styles/ste.md`, change that file too.
+
+### Limitations
+- **This is STE-style, not ASD-STE100 compliance.** The official ASD-STE100 specification has a controlled dictionary of approved words and meanings. This plugin doesn't include it, and doesn't check words against it.
+- The checks are heuristics. A sentence boundary inside an unusual abbreviation can be wrong. The script lists passive voice only as candidates, and Claude confirms them. Inconsistent terms are a judgment check by Claude.
+- Claude follows the style as an instruction. Run `/style-check` to verify the result.
+
 ## Sync behaviour
 - Validates `workflow.yaml`. It stops if the file is invalid or if `tracker.type: none`.
 - Checks that the MCP server is available. If it isn't, it prints the exact `claude mcp add` command and stops.
@@ -103,10 +153,13 @@ No secrets go into `workflow.yaml`, and the validator rejects anything that look
 ```
 .claude-plugin/plugin.json        plugin manifest
 .claude-plugin/marketplace.json   marketplace (this repo is both)
-skills/<name>/SKILL.md            init, brainstorm, roadmap, backlog, stories, sync
+skills/<name>/SKILL.md            init, brainstorm, roadmap, backlog, stories, sync, style-check
 skills/sync/{github,jira}.md      tracker-specific reference, loaded on demand
-scripts/pp.py                     offline helper: validate | plan | set-tracker | archive
+scripts/pp.py                     offline helper: validate | plan | set-tracker | archive | style-check
+references/writing-styles/        ste.md, plain-english.md (the style rules)
+references/apply-writing-style.md shared procedure that every doc skill follows
+output-styles/ste.md              optional output style for chat replies
 schemas/                          workflow.schema.json, item-frontmatter.md
-templates/                        roadmap.md, epic.md, user-story.md
+templates/                        roadmap.md, epic.md, user-story.md, glossary.md
 workflow.example.yaml             annotated config example
 ```

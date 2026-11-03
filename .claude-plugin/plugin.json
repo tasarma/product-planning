@@ -1,7 +1,7 @@
 {
   "name": "product-planning",
   "displayName": "Product Planning",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Generic SDLC planning workflow: brainstorm/research, Now/Next/Later roadmap, prioritized epics, user stories with acceptance criteria, and one-way sync to GitHub Issues or Jira. Project specifics live in product/workflow.yaml.",
   "author": { "name": "tasarma" },
   "license": "MIT",

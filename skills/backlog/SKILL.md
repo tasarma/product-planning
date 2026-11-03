@@ -16,6 +16,7 @@ Turn the Now and Next items on the roadmap into epic files, each scored with the
 - The roadmap at `paths.roadmap`. If it's missing, stop and suggest `/product-planning:roadmap`.
 - Template: `templates.epic` if set, otherwise `${CLAUDE_PLUGIN_ROOT}/templates/epic.md`.
 - Frontmatter contract: `${CLAUDE_PLUGIN_ROOT}/schemas/item-frontmatter.md` (Epic section).
+- Writing style: before you write any prose, follow `${CLAUDE_PLUGIN_ROOT}/references/apply-writing-style.md`. Don't copy the rules here.
 
 ## Outputs
 - `<paths.backlog>/<EPIC-NNN>-<slug>.md`, one per epic, created with `status: draft`

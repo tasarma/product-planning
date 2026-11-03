@@ -47,6 +47,12 @@ If **jira**:
 | Story points field id? | `tracker.jira.fields.story_points` | Optional `customfield_NNNNN`. Often `customfield_10016` on Jira Cloud, but **ask** |
 | How are stories linked to epics? | `tracker.jira.epic_link` | *default* `parent`. Older company-managed projects use the Epic Link field `customfield_NNNNN` |
 
+## Group 5: Writing style
+| Question | Field | Notes |
+|---|---|---|
+| Which writing style for generated docs? | `writing_style` | *default* `ste`: `ste` (STE-style, based on ASD-STE100), `plain-english` (lighter), `none` |
+| Create a glossary file for project terms? | `glossary` | *default* yes, at `product/glossary.md`. If no, leave the field out |
+
 ## MCP setup
 Print the command that matches `tracker.type`:
 

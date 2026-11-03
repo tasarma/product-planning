@@ -34,7 +34,7 @@ Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py plan .` for the table and `pyth
 - marks each item **create** (approved, no `tracker_id`), **update** (approved, has `tracker_id`), **skip** (not approved), or **error** (approved but invalid, with the reason)
 - already renders the issue title and body, the labels, and the Jira fields
 
-Use those payloads exactly as given. Don't rewrite them.
+Use those payloads exactly as given. Don't rewrite them. **Never rewrite, restyle, shorten or summarize content** to fit the writing style: sync sends the text exactly as it is in the files. Use `/product-planning:style-check` before sync to change the text.
 
 ## 5. Dry run and confirmation
 Show the table exactly as the script printed it, followed by the totals.
