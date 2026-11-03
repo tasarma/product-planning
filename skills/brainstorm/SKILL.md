@@ -15,6 +15,7 @@ Turn a raw idea into structured research notes: the problem, the personas, the a
 ## Inputs
 - `product/workflow.yaml`: `product`, `users`, `constraints`, and `paths.research`. If the file is missing, stop and tell the user to run `/product-planning:init`.
 - `$ARGUMENTS`: the idea or topic. If it's empty, ask for it.
+- Writing style: before you write any prose, follow `${CLAUDE_PLUGIN_ROOT}/references/apply-writing-style.md`. Don't copy the rules here.
 
 ## Outputs
 - `<paths.research>/YYYY-MM-DD-<slug>.md`, one file per session

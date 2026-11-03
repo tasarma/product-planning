@@ -6,6 +6,7 @@ Usage:
   pp.py plan <project-root> [--json]
   pp.py set-tracker <file> <tracker_id> <tracker_url>
   pp.py archive <project-root> <story-file>...
+  pp.py style-check [<file-or-folder>...] [--config product/workflow.yaml] [--json] [--protected]
 
 Requires python3 + PyYAML. Uses the `jsonschema` package for validation if
 installed; otherwise a built-in validator for the subset of JSON Schema that
@@ -530,6 +531,248 @@ def archive(root: Path, files: list[str]) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# Style check (heuristic; the style-check skill adds judgment on top)
+# --------------------------------------------------------------------------- #
+STYLE_DIR = PLUGIN_ROOT / "references" / "writing-styles"
+DOC_PATH_KEYS = ("research", "roadmap", "backlog", "stories")
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
+LIST_RE = re.compile(r"^\s*(?:([-*+])|(\d+)[.)])\s+")
+INLINE_CODE_RE = re.compile(r"`[^`]*`")
+QUOTE_RE = re.compile(r"\"[^\"\n]*\"|“[^”\n]*”")
+LINK_RE = re.compile(r"!?\[([^\]]*)\]\([^)]*\)")
+WORD_RE = re.compile(r"[A-Za-z0-9][\w'’/.-]*")
+ABBREV_RE = re.compile(r"\b(e\.g|i\.e|etc|vs|approx|incl)\.", re.I)
+SENT_SPLIT_RE = re.compile(r"(?<=[.!?])[\"')\]]*\s+")
+_IRREGULAR = ("made done sent shown given taken written built set put kept held found seen known told "
+              "lost run read paid sold left brought bought caught thought chosen driven broken hidden "
+              "forgotten begun drawn grown thrown worn torn spent sent lent meant felt dealt split shut")
+_NOT_PARTICIPLE = {"when", "then", "even", "often", "open", "ten", "token", "seven", "eleven", "garden",
+                   "kitchen", "children", "need", "red", "bed", "feed", "speed", "seed", "indeed",
+                   "embed", "shed", "bleed", "breed", "hundred", "kindred", "sacred", "naked", "wicked"}
+PASSIVE_RE = re.compile(r"\b(am|is|are|was|were|be|been|being|get|gets|got)\s+(?:\w+ly\s+)?"
+                        r"(\w+(?:ed|en)|" + "|".join(_IRREGULAR.split()) + r")\b", re.I)
+
+
+def _style_rules(style: str) -> dict:
+    if style == "none":
+        return {"name": "none"}
+    f = STYLE_DIR / f"{style}.md"
+    m = FM_RE.match(f.read_text()) if f.is_file() else None
+    rules = (yaml.safe_load(m.group(1)) or {}) if m else {}
+    rules.setdefault("name", style)
+    return rules
+
+
+def load_glossary(path: Path) -> list[dict]:
+    """Rows of a markdown table: | Term | Definition | Do not use |."""
+    terms = []
+    if not path.is_file():
+        return terms
+    for line in path.read_text().splitlines():
+        if not line.strip().startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) < 1 or not cells[0] or cells[0].lower() == "term" or set(cells[0]) <= set("-: "):
+            continue
+        avoid = [w.strip() for w in (cells[2] if len(cells) > 2 else "").split(",") if w.strip()]
+        terms.append({"term": cells[0], "definition": cells[1] if len(cells) > 1 else "", "avoid": avoid})
+    return terms
+
+
+def _blocks(text: str) -> tuple[list[tuple[int, str, str]], list[str]]:
+    """Classify lines. Returns ([(lineno, kind, masked_text)], protected_chunks).
+    kind: prose | olist | ulist | cont | heading | table | blank. Skipped lines are not returned."""
+    out, protected = [], []
+    lines = text.splitlines()
+    i = 0
+    m = FM_RE.match(text)
+    if m:
+        n = m.group(0).count("\n") if m.group(0).endswith("\n") else m.group(0).count("\n") + 1
+        protected.append(m.group(0))
+        i = n
+    fence = None
+    in_comment = False
+    for ln in range(i, len(lines)):
+        raw = lines[ln]
+        if fence:
+            protected.append(raw)
+            if raw.strip().startswith(fence):
+                fence = None
+            continue
+        fm = FENCE_RE.match(raw)
+        if fm:
+            fence = fm.group(1)
+            protected.append(raw)
+            continue
+        line = raw
+        if in_comment:
+            if "-->" not in line:
+                continue
+            line, in_comment = line.split("-->", 1)[1], False
+        line = re.sub(r"<!--.*?-->", "", line)
+        if "<!--" in line:
+            line, in_comment = line.split("<!--", 1)[0], True
+        if line.lstrip().startswith(">"):
+            protected.append(raw)
+            continue
+        protected += INLINE_CODE_RE.findall(line) + QUOTE_RE.findall(line)
+        masked = QUOTE_RE.sub("QUOTE", INLINE_CODE_RE.sub("CODE", line))
+        masked = LINK_RE.sub(r"\1", masked)
+        s = masked.strip()
+        if not s:
+            kind = "blank"
+        elif s.startswith("#"):
+            kind, masked = "heading", s.lstrip("#")
+        elif s.startswith("|"):
+            kind = "table"
+        else:
+            lm = LIST_RE.match(masked)
+            if lm:
+                kind = "olist" if lm.group(2) else "ulist"
+                masked = masked[lm.end():]
+            elif out and out[-1][1] in ("prose", "olist", "ulist", "cont"):
+                kind = "cont"
+            else:
+                kind = "prose"
+        out.append((ln + 1, kind, masked))
+    return out, protected
+
+
+def _paragraphs(blocks: list[tuple[int, str, str]]) -> list[dict]:
+    paras, cur = [], None
+    for ln, kind, txt in blocks:
+        if kind in ("blank", "heading", "table"):
+            cur = None
+            continue
+        if kind == "cont" and cur is not None:
+            cur["parts"].append((ln, txt))
+            continue
+        cur = {"procedure": kind == "olist", "parts": [(ln, txt)]}
+        paras.append(cur)
+    return paras
+
+
+def _sentences(para: dict) -> list[tuple[int, str]]:
+    """Split a paragraph into (start_line, sentence)."""
+    joined, starts = "", []
+    for ln, txt in para["parts"]:
+        clean = txt.replace("*", "").replace("_", " ").strip()
+        if not clean:
+            continue
+        starts.append((len(joined), ln))
+        joined += clean + " "
+    safe = ABBREV_RE.sub(lambda m: m.group(1) + "\x00", joined)
+    out, pos = [], 0
+    for piece in SENT_SPLIT_RE.split(safe):
+        seg = piece.replace("\x00", ".").strip()
+        idx = joined.find(seg[:20], pos) if seg else -1
+        if seg and WORD_RE.search(seg):
+            off = idx if idx >= 0 else pos
+            line = max((ln for o, ln in starts if o <= off), default=para["parts"][0][0])
+            out.append((line, seg))
+        pos += len(piece)
+    return out
+
+
+def check_file(path: Path, rules: dict, glossary: list[dict]) -> list[dict]:
+    issues = []
+    blocks, _ = _blocks(path.read_text())
+    style = rules["name"]
+    for ln, kind, txt in blocks:
+        for t in glossary:
+            for w in t["avoid"]:
+                for _ in re.finditer(r"(?<![\w-])" + re.escape(w) + r"(?![\w-])", txt, re.I):
+                    issues.append({"line": ln, "issue": "glossary",
+                                   "detail": f'"{w}" is on the do-not-use list: use "{t["term"]}"'})
+    if style == "none":
+        return sorted(issues, key=lambda i: i["line"])
+    max_p, max_d = rules.get("max_words_procedure"), rules.get("max_words_description")
+    max_s = rules.get("max_sentences_paragraph")
+    for para in _paragraphs(blocks):
+        sents = _sentences(para)
+        limit = max_p if para["procedure"] else max_d
+        for ln, s in sents:
+            n = len(WORD_RE.findall(s))
+            if limit and n > limit:
+                kind = "procedure" if para["procedure"] else "description"
+                short = s if len(s) <= 70 else s[:67] + "..."
+                issues.append({"line": ln, "issue": "long-sentence",
+                               "detail": f'{n} words ({kind}, limit {limit}): "{short}"'})
+            for m in PASSIVE_RE.finditer(s):
+                if m.group(2).lower() not in _NOT_PARTICIPLE:
+                    issues.append({"line": ln, "issue": "passive?",
+                                   "detail": f'"{m.group(0)}" (candidate: confirm by reading)'})
+        if max_s and len(sents) > max_s:
+            issues.append({"line": para["parts"][0][0], "issue": "long-paragraph",
+                           "detail": f"{len(sents)} sentences (limit {max_s})"})
+    return sorted(issues, key=lambda i: i["line"])
+
+
+def _md_files(targets: list[Path]) -> list[Path]:
+    files: list[Path] = []
+    for t in targets:
+        if t.is_dir():
+            files += sorted(t.rglob("*.md"))
+        elif t.is_file():
+            files.append(t)
+    return files
+
+
+def style_check(args: list[str]) -> int:
+    as_json = "--json" in args
+    protected = "--protected" in args
+    cfg_path = Path("product/workflow.yaml")
+    if "--config" in args:
+        i = args.index("--config")
+        cfg_path = Path(args[i + 1])
+        args = args[:i] + args[i + 2:]
+    targets = [a for a in args if not a.startswith("--")]
+    cfg: dict = {}
+    if cfg_path.is_file():
+        cfg, errors = load_config(cfg_path)
+        if errors:
+            print("INVALID config")
+            for e in errors:
+                print(f"  - {e}")
+            return 2
+    style = cfg.get("writing_style", "ste")
+    gpath = Path(cfg.get("glossary", "product/glossary.md"))
+    if not targets:
+        paths = cfg.get("paths") or {}
+        targets = [paths.get(k) for k in DOC_PATH_KEYS if paths.get(k)]
+        if not targets:
+            print("No paths given and no paths.* found in the config.")
+            return 2
+    files = [f for f in _md_files([Path(t) for t in targets])
+             if not (gpath.is_file() and f.resolve() == gpath.resolve())]
+    if protected:
+        import hashlib
+        for f in files:
+            chunks = _blocks(f.read_text())[1]
+            print(f"{hashlib.sha256(chr(10).join(chunks).encode()).hexdigest()}  {f}")
+        return 0
+    rules, glossary = _style_rules(style), load_glossary(gpath)
+    report = [{"file": str(f), "issues": check_file(f, rules, glossary)} for f in files]
+    total = sum(len(r["issues"]) for r in report)
+    if as_json:
+        print(json.dumps({"style": style, "glossary": str(gpath) if glossary else None,
+                          "files": report, "total": total}, indent=2, ensure_ascii=False))
+        return 1 if total else 0
+    note = " (style none: glossary checks only)" if style == "none" else ""
+    print(f"style: {style}{note} | glossary: {gpath if glossary else 'none'} | files: {len(files)}")
+    for r in report:
+        if not r["issues"]:
+            print(f"\n{r['file']}: OK")
+            continue
+        print(f"\n{r['file']}: {len(r['issues'])} issue(s)")
+        print(f"  {'line':>4}  {'issue':<15} detail")
+        for i in r["issues"]:
+            print(f"  {i['line']:>4}  {i['issue']:<15} {i['detail']}")
+    print(f"\nTotal: {total} issue(s) in {sum(1 for r in report if r['issues'])} file(s)")
+    return 1 if total else 0
+
+
+# --------------------------------------------------------------------------- #
 def main(argv: list[str]) -> int:
     if len(argv) < 2 or argv[1] in ("-h", "--help"):
         print(__doc__)
@@ -557,6 +800,8 @@ def main(argv: list[str]) -> int:
         return 0
     if cmd == "archive" and len(args) >= 2:
         return archive(Path(args[0]), args[1:])
+    if cmd == "style-check":
+        return style_check(args)
     print(__doc__)
     return 2
 

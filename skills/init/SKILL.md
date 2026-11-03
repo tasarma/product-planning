@@ -3,7 +3,7 @@ name: init
 description: Create and validate product/workflow.yaml for the product-planning workflow by interviewing the user. Use when starting product planning in a new project, or when workflow.yaml is missing or invalid.
 argument-hint: "[answers or notes, optional]"
 disable-model-invocation: true
-allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py *) Bash(mkdir -p *)
+allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py *) Bash(mkdir -p *) Bash(cp ${CLAUDE_PLUGIN_ROOT}/templates/glossary.md *)
 ---
 
 # Initialize product/workflow.yaml
@@ -22,7 +22,9 @@ Schema: `${CLAUDE_PLUGIN_ROOT}/schemas/workflow.schema.json`. Annotated example:
 3. Write `product/workflow.yaml`. Follow the structure and comment style of `workflow.example.yaml`, but include only the fields that were answered or defaulted. Keep the header comment that says the file must contain no secrets.
 4. Validate it with `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py validate product/workflow.yaml`. If it fails, fix what you can from the user's own answers. Ask the user about anything else, then validate again. Repeat until the output says `OK`.
 5. Create the folders: `mkdir -p` the `research`, `backlog`, `stories` and `archive` paths, plus the parent folder of the `roadmap` path.
+   If the user wants a glossary and the `glossary` file doesn't exist yet, copy `${CLAUDE_PLUGIN_ROOT}/templates/glossary.md` to that path. Never overwrite an existing glossary.
 6. Finish with:
    - a short summary of the config, listing any defaults applied
+   - the writing style, and the glossary path if one was created
    - the MCP setup command for the tracker, from the "MCP setup" section of [questions.md](questions.md), unless `tracker.type` is `none`
    - next step: `/product-planning:brainstorm`

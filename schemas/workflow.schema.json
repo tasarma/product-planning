@@ -79,6 +79,17 @@
         "story": { "type": "string" }
       }
     },
+    "writing_style": {
+      "type": "string",
+      "enum": ["ste", "plain-english", "none"],
+      "default": "ste",
+      "description": "Style for prose in generated docs. Rules: references/writing-styles/<style>.md in the plugin."
+    },
+    "glossary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional path to the project glossary (markdown table: Term | Definition | Do not use). Read if it exists; default product/glossary.md."
+    },
     "definition_of_ready": { "type": "array", "items": { "type": "string" } },
     "definition_of_done": { "type": "array", "items": { "type": "string" } },
     "tracker": {
