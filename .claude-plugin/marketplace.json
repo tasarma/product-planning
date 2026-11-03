@@ -1,0 +1,12 @@
+{
+  "name": "product-planning-marketplace",
+  "description": "Marketplace for the product-planning plugin",
+  "owner": { "name": "tasarma" },
+  "plugins": [
+    {
+      "name": "product-planning",
+      "source": "./",
+      "description": "Idea → roadmap → epics → stories → GitHub Issues / Jira, configured per project via product/workflow.yaml"
+    }
+  ]
+}

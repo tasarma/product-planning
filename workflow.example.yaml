@@ -1,0 +1,95 @@
+# product/workflow.yaml — per-project config for the product-planning plugin.
+# Schema: schemas/workflow.schema.json (in the plugin). Validate with /product-planning:init
+# or: python3 <plugin>/scripts/pp.py validate product/workflow.yaml
+#
+# NEVER put secrets here (tokens, passwords, URLs with credentials).
+# Tracker authentication comes from the MCP server you configure with `claude mcp add`.
+
+# Version of this file's format. Lets future plugin versions migrate/warn.
+schema_version: 1
+
+# What you're building. `goal` must be a single line.
+product:
+  name: Example Planner
+  goal: Help small teams turn ideas into a shipped, prioritized backlog in under a day.
+
+# Personas. Stories reference these by name in "As a <persona>".
+users:
+  - name: Team lead
+    description: Plans the quarter and owns the backlog.
+    goals: [See priorities at a glance, Keep the tracker in sync without copy-paste]
+  - name: Developer
+    description: Picks up stories and needs clear acceptance criteria.
+    goals: [Know when a story is done]
+
+# Constraints every stage must respect. type: compliance | regulatory | technical | business | other
+constraints:
+  - type: technical
+    description: Must run on the existing PostgreSQL 16 cluster.
+  - type: compliance
+    description: Personal data must stay in the EU region.
+
+# Prioritization framework used by the backlog stage: RICE | MoSCoW | WSJF | value-effort
+prioritization: RICE
+
+# How stories are estimated. `estimate` in story frontmatter is checked against `scale`.
+# unit: story_points | t-shirt | none
+estimation:
+  unit: story_points
+  scale: [1, 2, 3, 5, 8, 13]
+
+# Id prefixes -> EPIC-001, US-001. Uppercase letters/digits.
+ids:
+  epic_prefix: EPIC
+  story_prefix: US
+
+# Where each stage writes its files (relative to the project root). These are the defaults.
+paths:
+  research: product/research      # brainstorm/research notes (folder)
+  roadmap: product/roadmap.md     # Now/Next/Later roadmap (file)
+  backlog: product/backlog        # one file per epic (folder)
+  stories: product/stories        # one file per story (folder)
+  archive: product/archive        # synced stories moved here after sync, if you accept (folder)
+
+# Optional: override the bundled templates with project-local ones.
+# templates:
+#   roadmap: product/templates/roadmap.md
+#   epic: product/templates/epic.md
+#   story: product/templates/user-story.md
+
+# A story may only move to `status: approved` when these hold.
+definition_of_ready:
+  - Has at least one Given/When/Then acceptance criterion
+  - Is estimated
+  - Has no unresolved dependencies
+
+# Appended to each synced issue as a checklist.
+definition_of_done:
+  - Code reviewed and merged
+  - Acceptance criteria verified
+  - Docs updated
+
+# Where /product-planning:sync pushes approved epics and stories. type: github | jira | none
+tracker:
+  type: github
+  github:
+    repo: example-org/example-planner     # owner/name
+    labels:
+      epic: epic
+      story: user-story
+      extra: [planned]                    # added to every synced issue
+    # milestone: 3                        # milestone number (optional)
+    # project: "Roadmap"                  # GitHub Project name (optional; added manually if the MCP server can't)
+
+  # --- Jira alternative (set type: jira) ---
+  # jira:
+  #   site: example.atlassian.net         # hostname only, no https://, no credentials
+  #   project_key: PLAN
+  #   issue_types:
+  #     epic: Epic
+  #     story: Story
+  #   fields:
+  #     acceptance_criteria: description  # or customfield_10050 if you have a dedicated AC field
+  #     story_points: customfield_10016   # or null to skip
+  #   epic_link: parent                   # team-managed + modern company-managed projects use parent;
+  #                                       # older company-managed use the Epic Link field, e.g. customfield_10014
