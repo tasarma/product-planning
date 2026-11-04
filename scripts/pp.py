@@ -7,6 +7,7 @@ Usage:
   pp.py set-tracker <file> <tracker_id> <tracker_url>
   pp.py archive <project-root> <story-file>...
   pp.py style-check [<file-or-folder>...] [--config product/workflow.yaml] [--json] [--protected]
+  pp.py hook-style-check            (PreToolUse hook: reads hook JSON on stdin)
 
 Requires python3 + PyYAML. Uses the `jsonschema` package for validation if
 installed; otherwise a built-in validator for the subset of JSON Schema that
@@ -23,8 +24,9 @@ from pathlib import Path
 
 try:
     import yaml
+    YAML_MISSING = False
 except ImportError:  # pragma: no cover
-    sys.exit("ERROR: PyYAML is required. Install it with: python3 -m pip install --user pyyaml")
+    YAML_MISSING = True  # main() reports this; the hook fails open instead
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = PLUGIN_ROOT / "schemas" / "workflow.schema.json"
@@ -675,8 +677,12 @@ def _sentences(para: dict) -> list[tuple[int, str]]:
 
 
 def check_file(path: Path, rules: dict, glossary: list[dict]) -> list[dict]:
+    return check_text(path.read_text(), rules, glossary)
+
+
+def check_text(text: str, rules: dict, glossary: list[dict]) -> list[dict]:
     issues = []
-    blocks, _ = _blocks(path.read_text())
+    blocks, _ = _blocks(text)
     style = rules["name"]
     for ln, kind, txt in blocks:
         for t in glossary:
@@ -773,11 +779,107 @@ def style_check(args: list[str]) -> int:
 
 
 # --------------------------------------------------------------------------- #
+# PreToolUse hook: style-check a product doc before Write/Edit/MultiEdit lands
+# --------------------------------------------------------------------------- #
+HOOK_BLOCKING = ("long-sentence", "long-paragraph", "glossary")
+
+
+def _apply_edits(old: str, edits: list[dict]) -> str | None:
+    """Apply Edit/MultiEdit replacements. None if one doesn't match (the tool reports that)."""
+    text = old
+    for e in edits:
+        o, n = e.get("old_string", ""), e.get("new_string", "")
+        if not o or o not in text:
+            return None
+        text = text.replace(o, n) if e.get("replace_all") else text.replace(o, n, 1)
+    return text
+
+
+def _hook_target(cfg: dict, root: Path, target: Path) -> bool:
+    if target.suffix.lower() != ".md" or target.name.lower() == "readme.md":
+        return False
+    gloss = (root / cfg.get("glossary", "product/glossary.md")).resolve()
+    if target == gloss:
+        return False
+    for k in DOC_PATH_KEYS:
+        p = (root / cfg["paths"][k]).resolve()
+        if target == p or p in target.parents:
+            return True
+    return False
+
+
+def hook_style_check(stdin: str) -> int:
+    """Always exits 0. Prints a deny decision when the write adds style issues."""
+    try:
+        if YAML_MISSING:
+            return 0
+        data = json.loads(stdin)
+        tool, ti = data.get("tool_name"), data.get("tool_input") or {}
+        if tool not in ("Write", "Edit", "MultiEdit") or not ti.get("file_path"):
+            return 0
+        root = Path(data.get("cwd") or os.getcwd()).resolve()
+        cfg, errors = load_config(root / CONFIG_REL)
+        if errors or not cfg:
+            return 0
+        target = Path(ti["file_path"])
+        target = (target if target.is_absolute() else root / target).resolve()
+        if not _hook_target(cfg, root, target):
+            return 0
+        style = cfg.get("writing_style", "ste")
+        glossary = load_glossary(root / cfg.get("glossary", "product/glossary.md"))
+        if style == "none" and not glossary:
+            return 0
+
+        old = target.read_text() if target.is_file() else ""
+        if tool == "Write":
+            new = ti.get("content", "")
+        else:
+            edits = ti.get("edits") if tool == "MultiEdit" else [ti]
+            new = _apply_edits(old, edits or [])
+            if new is None:
+                return 0
+
+        rules = _style_rules(style)
+        # Block only on issues the write adds. Compare counts, not lines: lines shift on edit.
+        from collections import Counter
+        before = Counter((i["issue"], i["detail"]) for i in check_text(old, rules, glossary)) if old else Counter()
+        issues = []
+        for i in check_text(new, rules, glossary):
+            key = (i["issue"], i["detail"])
+            if i["issue"] not in HOOK_BLOCKING:
+                continue
+            if before[key] > 0:
+                before[key] -= 1
+                continue
+            issues.append(i)
+        if not issues:
+            return 0
+
+        rel = target.relative_to(root).as_posix() if root in target.parents else str(target)
+        lines = "\n".join(f"- line {i['line']} {i['issue']}: {i['detail']}" for i in issues)
+        rules_ref = f"references/writing-styles/{style}.md" if style != "none" else "the glossary"
+        reason = (f"Style check ({style}) blocked this write to {rel}. "
+                  f"It adds {len(issues)} issue(s):\n{lines}\n"
+                  "Rewrite only the affected prose and try again. Keep code, frontmatter, quoted text, "
+                  f"template headings and the Given/When/Then markers unchanged. Rules: {rules_ref}.")
+        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse",
+                                                 "permissionDecision": "deny",
+                                                 "permissionDecisionReason": reason}}))
+    except Exception:  # fail open: a broken hook must never stop writes
+        return 0
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 def main(argv: list[str]) -> int:
     if len(argv) < 2 or argv[1] in ("-h", "--help"):
         print(__doc__)
         return 0
     cmd, args = argv[1], argv[2:]
+    if cmd == "hook-style-check":
+        return hook_style_check(sys.stdin.read())
+    if YAML_MISSING:
+        sys.exit("ERROR: PyYAML is required. Install it with: python3 -m pip install --user pyyaml")
     if cmd == "validate" and len(args) == 1:
         cfg, errors = load_config(Path(args[0]))
         if errors:

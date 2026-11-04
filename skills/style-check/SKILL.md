@@ -40,7 +40,7 @@ The issue types are: long sentence, long paragraph, passive voice, glossary conf
 
 ## 4. Fix (only after yes)
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py style-check <files> --protected` and keep the output.
-2. Edit only the prose that has an issue. Follow the active style file and the glossary.
+2. Edit only the prose that has an issue. Follow the active style file and the glossary. The plugin's style hook also checks each edit. If it stops an edit, the fix added a new issue: fix that text and edit again.
 3. Run the `--protected` command again. Each file must have the same hash as before. If a hash changed, undo your edits to that file and report it as "not fixed: protected text changed".
 4. If you changed files in `paths.backlog` or `paths.stories`, run `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pp.py plan .` and confirm that no item has a new error.
 5. Run the check from step 1 again.

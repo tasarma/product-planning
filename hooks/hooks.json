@@ -1,0 +1,17 @@
+{
+  "description": "Style-check product docs before Claude writes them. Blocks writes that add long sentences, long paragraphs or glossary do-not-use words.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pp.py\" hook-style-check",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
