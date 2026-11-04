@@ -114,7 +114,14 @@ The report gives one table per file: long sentences (with line and word count), 
 The measurable checks also run without Claude, for example in CI:
 `python3 <plugin>/scripts/pp.py style-check [path...] [--json]` (exit code 1 when it finds issues).
 
-To run the check automatically after each edit, you can add a `PostToolUse` hook that calls this command. The plugin doesn't ship one, because the warnings get noisy while you draft.
+### Automatic check before each write
+The plugin ships a `PreToolUse` hook ([`hooks/hooks.json`](hooks/hooks.json)). It runs before Claude writes or edits a file. If the new text breaks the style, the hook stops the write and gives Claude the list of issues. Claude then rewrites the text and tries again, so the bad text never gets to the file.
+
+- **Which files.** Only `.md` files in `paths.research`, `paths.roadmap`, `paths.backlog` and `paths.stories`. It skips the glossary, `README.md` files, and projects that have no valid `product/workflow.yaml`.
+- **What blocks a write.** Long sentences, long paragraphs, and words from the glossary's "Do not use" column. Passive voice and inconsistent terms are judgment checks, so they stay with `/style-check`.
+- **Only new issues.** When Claude changes a file that already has issues, the hook blocks only the issues that the change adds. Small edits to older docs still work.
+- **Fails open.** If the hook can't run, for example because PyYAML is missing, the write goes through.
+- **Turn it off.** Set `writing_style: none` and remove the glossary, or turn off the plugin's hooks in `/hooks`.
 
 ### Chat replies (optional)
 The plugin ships an output style for chat replies. Claude Code lists it as `product-planning:ste`. Turn it on with `/output-style product-planning:ste`, or select it in `/config` → Output style. Turn it off with `/output-style default`. Output styles can't read plugin files, so `output-styles/ste.md` has its own short copy of the STE rules. If you change `references/writing-styles/ste.md`, change that file too.
@@ -155,7 +162,8 @@ No secrets go into `workflow.yaml`, and the validator rejects anything that look
 .claude-plugin/marketplace.json   marketplace (this repo is both)
 skills/<name>/SKILL.md            init, brainstorm, roadmap, backlog, stories, sync, style-check
 skills/sync/{github,jira}.md      tracker-specific reference, loaded on demand
-scripts/pp.py                     offline helper: validate | plan | set-tracker | archive | style-check
+hooks/hooks.json                  PreToolUse hook: style-check product docs before each write
+scripts/pp.py                     offline helper: validate | plan | set-tracker | archive | style-check | hook-style-check
 references/writing-styles/        ste.md, plain-english.md (the style rules)
 references/apply-writing-style.md shared procedure that every doc skill follows
 output-styles/ste.md              optional output style for chat replies
