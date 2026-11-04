@@ -13,7 +13,7 @@ Turn the research notes into a Now/Next/Later roadmap made of themes and candida
 
 ## Inputs
 - `product/workflow.yaml`: `product`, `users`, `constraints`, `prioritization`, `paths.research`, `paths.roadmap`, and `templates.roadmap`. If the file is missing, stop and point the user to `/product-planning:init`.
-- Research notes in `paths.research`. If there are none, stop and suggest `/product-planning:brainstorm`.
+- The brief at `<paths.research>/brief.md` and the research notes. If there is no brief, stop and suggest `/product-planning:brainstorm`.
 - Template: `templates.roadmap` if set, otherwise `${CLAUDE_PLUGIN_ROOT}/templates/roadmap.md`.
 - Writing style: before you write any prose, follow `${CLAUDE_PLUGIN_ROOT}/references/apply-writing-style.md`. Don't copy the rules here.
 
@@ -21,6 +21,7 @@ Turn the research notes into a Now/Next/Later roadmap made of themes and candida
 - `paths.roadmap`, which is created or updated. Show a diff and ask before overwriting.
 
 ## TODO
+- [ ] Place every brief feature `F#` in Now, Next, Later or Not doing. Use `must`/`should` from the brief as an input. The roadmap alone decides the horizon
 - [ ] Cluster research findings into themes
 - [ ] Place themes into Now/Next/Later, with the reasoning based on `prioritization`
 - [ ] Add a "Not doing" list and the constraints that were considered

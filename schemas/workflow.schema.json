@@ -74,6 +74,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "brief": { "type": "string" },
         "roadmap": { "type": "string" },
         "epic": { "type": "string" },
         "story": { "type": "string" }

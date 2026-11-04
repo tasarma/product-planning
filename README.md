@@ -11,10 +11,10 @@ The skills are generic. Everything specific to a project (product, personas, con
 | Skill | Status | What it does |
 |---|---|---|
 | `/product-planning:init` | ✅ | Interviews you, writes `product/workflow.yaml`, and validates it |
-| `/product-planning:brainstorm` | 🚧 stub | Research notes → `paths.research` |
+| `/product-planning:brainstorm` | ✅ | Interviews you, researches feasibility, pushes back, and writes a product brief → `paths.research/brief.md` |
 | `/product-planning:roadmap` | 🚧 stub | Now/Next/Later roadmap → `paths.roadmap` |
 | `/product-planning:backlog` | 🚧 stub | One file per epic → `paths.backlog` |
-| `/product-planning:stories` | 🚧 stub | One file per story, with acceptance criteria → `paths.stories` |
+| `/product-planning:stories` | ✅ | Vertical-slice stories (about one PR each) with acceptance criteria and a coverage table → `paths.stories` |
 | `/product-planning:sync` | ✅ | One-way sync of **approved** epics and stories → tracker |
 | `/product-planning:style-check` | ✅ | Checks docs against the writing style and glossary, and fixes them after you say yes |
 
@@ -55,8 +55,8 @@ You can validate the config at any time with:
 workflow.yaml ──┬─────────────┬──────────────┬──────────────┬─────────────┐
                 ▼             ▼              ▼              ▼             ▼
            brainstorm ──▶ roadmap ──▶     backlog   ──▶   stories  ──▶   sync
-        paths.research  paths.roadmap  paths.backlog   paths.stories  tracker.*
-         (notes .md)    (Now/Next/     (EPIC-NNN-*.md) (US-NNN-*.md)  GitHub/Jira
+        brief.md        paths.roadmap  paths.backlog   paths.stories  tracker.*
+        (F1, F2, …)     (Now/Next/     (EPIC-NNN-*.md) (US-NNN-*.md)  GitHub/Jira
                          Later)                                       one-way
 ```
 
@@ -73,7 +73,9 @@ workflow.yaml ──┬─────────────┬─────
   tracker_url: null    # written by sync
   ```
 - **Only `status: approved` items are synced.** Moving an item from draft to review to approved is your review gate.
-- Templates are in [`templates/`](templates/). To use your own, set `templates.epic`, `templates.story` or `templates.roadmap` in `workflow.yaml`.
+- Templates are in [`templates/`](templates/). To use your own, set `templates.brief`, `templates.epic`, `templates.story` or `templates.roadmap` in `workflow.yaml`.
+- **Traceability you can check by reading.** The brief gives each feature a stable id (`F1`, `F2`, …). The roadmap places each id in Now, Next, Later or Not doing. Each epic has a `Traces to: F#` line, and each story has a `Traces to: EPIC-NNN → F#` line. Each epic's `## Stories` section is a coverage table: one row for each In-scope item, with its story ids. An empty cell is a gap.
+- **Stories are vertical slices** of about one PR each. The splitting rules and the "too big" rule are in [`skills/stories/splitting.md`](skills/stories/splitting.md).
 
 ## Writing style
 All prose that the doc skills write follows one writing style. Each project selects it in `product/workflow.yaml`:
@@ -168,6 +170,6 @@ references/writing-styles/        ste.md, plain-english.md (the style rules)
 references/apply-writing-style.md shared procedure that every doc skill follows
 output-styles/ste.md              optional output style for chat replies
 schemas/                          workflow.schema.json, item-frontmatter.md
-templates/                        roadmap.md, epic.md, user-story.md, glossary.md
+templates/                        brief.md, roadmap.md, epic.md, user-story.md, glossary.md
 workflow.example.yaml             annotated config example
 ```
