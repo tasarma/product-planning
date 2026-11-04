@@ -23,6 +23,8 @@ Turn the Now and Next items on the roadmap into epic files, each scored with the
 - `<paths.backlog>/README.md`, the epics ordered by priority
 
 ## TODO
+- [ ] Write `**Traces to:** F#` in each epic, from the roadmap's Brief features column. Check that each Now/Next feature has an epic
+- [ ] Write a clear In-scope list in each epic. `/stories` builds its coverage table from it
 - [ ] Ask for the scoring inputs for each epic (e.g. RICE: reach, impact, confidence, effort). Never invent them.
 - [ ] Assign the next free id, checking both `paths.backlog` and `paths.archive`
 - [ ] Generate the priority-ordered README index

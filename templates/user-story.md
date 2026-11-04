@@ -15,6 +15,8 @@ tracker_url: null         # written by /product-planning:sync — do not edit by
 **I want** <capability>
 **so that** <benefit>
 
+**Traces to:** EPIC-000 → F0 (In-scope item: "<item from the epic>")
+
 ## Context
 
 <!-- Why now, links to research/roadmap, constraints from workflow.yaml that apply. -->
@@ -32,6 +34,16 @@ tracker_url: null         # written by /product-planning:sync — do not edit by
 - **When** <action>
 - **Then** <observable outcome>
 
+## Out of scope
+
+<!-- What this story does not do, and the story id that does it. -->
+- 
+
+## Depends on
+
+<!-- Story ids, or "None". -->
+- None
+
 ## Notes
 
-<!-- Out of scope, open questions, dependencies. -->
+<!-- Open questions. If the story stays large, write: Kept as one story because ... -->

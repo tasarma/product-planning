@@ -10,6 +10,8 @@ tracker_url: null         # written by /product-planning:sync — do not edit by
 
 ## Problem
 
+**Traces to:** F0 <!-- brief feature ids from <paths.research>/brief.md -->
+
 <!-- Who has the problem (persona), what it costs them today. -->
 
 ## Outcome
@@ -34,4 +36,8 @@ tracker_url: null         # written by /product-planning:sync — do not edit by
 
 ## Stories
 
-<!-- Filled by /product-planning:stories: list of story ids. -->
+<!-- Filled by /product-planning:stories. Each In-scope item has one row. An empty Stories cell is a gap. -->
+
+| In-scope item | Stories |
+|---|---|
+| | |

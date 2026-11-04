@@ -53,6 +53,7 @@ paths:
 
 # Optional: override the bundled templates with project-local ones.
 # templates:
+#   brief: product/templates/brief.md
 #   roadmap: product/templates/roadmap.md
 #   epic: product/templates/epic.md
 #   story: product/templates/user-story.md
